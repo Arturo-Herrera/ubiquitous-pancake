@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interacciones MapVentura</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #000; font-family: 'Inter', sans-serif; }
+        #map { 
+            height: calc(100vh - 64px); 
+            width: 100%;
+            background: #0f172a;
+        }
+        /* Estética oscura del mapa */
+        .leaflet-tile { filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3); }
+        
+        /* Ley de Fitts: Botones grandes para pulgar */
+        .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+            background-color: #7c3aed !important;
+            color: white !important;
+            border: none !important;
+            width: 48px !important;
+            height: 48px !important;
+            line-height: 48px !important;
+            font-size: 24px !important;
+            border-radius: 12px !important;
+            margin-bottom: 8px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4) !important;
+        }
+
+        /* Estilo del Toast (Feedback Visual) */
+        #toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        #toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-10px);
+        }
+
+        /* Animación de carga para el marcador */
+        .loading-pulse {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="overflow-hidden">
+
+    <!-- Navbar con Contador -->
+    <nav class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-6">
+        <div class="flex items-center space-x-2">
+            <a href="/" class="bg-violet-600 p-1.5 rounded-lg hover:bg-violet-700 transition">
+                <i class="fas fa-chevron-left text-white"></i>
+            </a>
+            <span class="text-xl font-bold text-white tracking-tighter">MAP<span class="text-violet-500">VENTURA</span></span>
+        </div>
+        <div id="stats" class="flex items-center space-x-4">
+            <div class="bg-violet-500/10 border border-violet-500/30 px-4 py-1 rounded-full text-violet-400 font-bold text-sm">
+                <i class="fas fa-map-pin mr-2"></i>Puntos: <span id="marker-count">1</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Feedback Visual (Toast) -->
+    <div id="toast">
+        <div id="toast-content" class="bg-violet-600 text-white px-6 py-3 rounded-full font-bold shadow-2xl flex items-center space-x-2 border border-violet-400">
+            <i id="toast-icon" class="fas fa-check-circle text-xl"></i>
+            <span id="toast-text">¡Punto marcado con éxito!</span>
+        </div>
+    </div>
+
+    <!-- Contenedor del Mapa -->
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Coordenadas UTT Tijuana
+        const uttCoords = [32.4575, -116.8256];
+        let activeMarkers = 1;
+
+        // Inicializar mapa
+        const map = L.map('map', { zoomControl: false }).setView(uttCoords, 16);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        // Reposicionar controles de zoom
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+        // Generador de iconos con estados
+        function getIcon(status = 'default') {
+            let colorClass = 'text-violet-600';
+            let extraClass = '';
+            
+            if (status === 'pending') {
+                colorClass = 'text-gray-400';
+                extraClass = 'loading-pulse';
+            } else if (status === 'saved') {
+                colorClass = 'text-purple-400';
+            }
+
+            return L.divIcon({
+                html: `<i class="fas fa-location-dot ${colorClass} ${extraClass} text-4xl drop-shadow-[0_0_10px_rgba(124,58,237,0.7)]"></i>`,
+                className: 'custom-marker',
+                iconSize: [30, 42],
+                iconAnchor: [15, 42],
+                popupAnchor: [0, -40]
+            });
+        }
+
+        // Marcador inicial (UTT)
+        L.marker(uttCoords, { icon: getIcon() }).addTo(map)
+            .bindPopup('<b class="text-violet-700">UTT Tijuana (Inicio)</b>');
+
+        // Sistema de notificaciones mejorado
+        function showToast(text, icon = 'fa-check-circle', type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastContent = document.getElementById('toast-content');
+            const toastText = document.getElementById('toast-text');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastText.innerText = text;
+            toastIcon.className = `fas ${icon} text-xl`;
+            
+            if (type === 'loading') {
+                toastContent.className = "bg-gray-700 text-white px-6 py-3 rounded-full font-bold shadow-2xl flex items-center space-x-2 border border-gray-500";
+                toastIcon.className = "fas fa-spinner fa-spin text-xl";
+            } else {
+                toastContent.className = "bg-violet-600 text-white px-6 py-3 rounded-full font-bold shadow-2xl flex items-center space-x-2 border border-violet-400";
+            }
+
+            toast.classList.add('show');
+            if (type !== 'loading') {
+                setTimeout(() => toast.classList.remove('show'), 3000);
+            }
+        }
+
+        function hideToast() {
+            document.getElementById('toast').classList.remove('show');
+        }
+
+        function updateCounter() {
+            document.getElementById('marker-count').innerText = activeMarkers;
+        }
+
+        // ACTIVIDAD 3 & 4: Gestión de puntos con latencia y confirmación
+        map.on('click', function(e) {
+            const tempLatlng = e.latlng;
+            
+            // 1. Colocar marcador temporal (gris) inmediatamente
+            const tempMarker = L.marker(tempLatlng, { 
+                icon: getIcon('pending') 
+            }).addTo(map);
+
+            // 2. Abrir popup de confirmación (Prevención de errores)
+            const popupContent = document.createElement('div');
+            popupContent.className = "p-2 text-center";
+            popupContent.innerHTML = `
+                <p class="font-bold mb-3 text-gray-800">¿Guardar este punto?</p>
+                <div class="flex space-x-2">
+                    <button id="btn-save" class="bg-violet-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-violet-700">Guardar</button>
+                    <button id="btn-cancel" class="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-300">Cancelar</button>
+                </div>
+            `;
+
+            tempMarker.bindPopup(popupContent).openPopup();
+
+            // Lógica de botones del popup
+            popupContent.querySelector('#btn-cancel').onclick = () => {
+                map.removeLayer(tempMarker);
+            };
+
+            popupContent.querySelector('#btn-save').onclick = async () => {
+                tempMarker.closePopup();
+                showToast('Guardando en la nube...', 'fa-spinner', 'loading');
+
+                // 3. Simulación de latencia y Fetch a Flask
+                try {
+                    // Nota: En un entorno real usarías fetch('/guardar_punto', { method: 'POST', ... })
+                    // Aquí simulamos la respuesta del servidor con un delay de 1.5s
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+
+                    // Éxito: Cambiar color de marcador (Gris -> Morado)
+                    tempMarker.setIcon(getIcon('saved'));
+                    hideToast();
+                    showToast('¡Punto guardado!', 'fa-cloud-upload-alt');
+                    
+                    activeMarkers++;
+                    updateCounter();
+
+                    // Añadir opción de eliminar permanentemente
+                    tempMarker.bindPopup(`
+                        <div class="p-2 text-center">
+                            <p class="font-bold mb-1">Punto Guardado</p>
+                            <span class="text-[10px] text-gray-500">${tempLatlng.lat.toFixed(4)}, ${tempLatlng.lng.toFixed(4)}</span>
+                            <hr class="my-2">
+                            <button onclick="deleteSavedMarker(this)" class="text-red-500 text-xs font-bold">Eliminar permanentemente</button>
+                        </div>
+                    `);
+                    
+                    tempMarker.on('popupopen', () => window.currentMarker = tempMarker);
+
+                } catch (error) {
+                    showToast('Error al conectar', 'fa-exclamation-triangle');
+                    tempMarker.setIcon(getIcon('default')); // Volver a estado normal si falla
+                }
+            };
+        });
+
+        window.deleteSavedMarker = function() {
+            if (window.currentMarker) {
+                map.removeLayer(window.currentMarker);
+                activeMarkers--;
+                updateCounter();
+                showToast('Punto eliminado', 'fa-trash');
+            }
+        };
+
+    </script>
+</body>
+</html>

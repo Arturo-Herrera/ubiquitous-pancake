@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MapVentura | Explora lo Desconocido</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Fondo ultra oscuro */
+        }
+
+        .hero-gradient {
+            background: linear-gradient(rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.9)), 
+                        url('https://images.unsplash.com/photo-1526772662000-3f88f10405ff?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-position: center;
+        }
+
+        .purple-glow {
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+        }
+
+        .text-gradient {
+            background: linear-gradient(to right, #a78bfa, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="text-gray-200">
+
+    <!-- Navegación -->
+    <nav class="flex items-center justify-between px-8 py-6 bg-transparent absolute w-full z-10">
+        <div class="flex items-center space-x-2">
+            <div class="bg-violet-600 p-2 rounded-lg">
+                <i class="fas fa-compass text-white text-xl"></i>
+            </div>
+            <span class="text-2xl font-black tracking-tighter text-white">MAP<span class="text-violet-500">VENTURA</span></span>
+        </div>
+        <div class="hidden md:flex space-x-8 font-medium">
+            <a href="#" class="hover:text-violet-400 transition">Rutas</a>
+            <a href="#" class="hover:text-violet-400 transition">Seguridad</a>
+            <a href="#" class="hover:text-violet-400 transition">Comunidad</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero-gradient min-h-screen flex items-center justify-center px-6">
+        <div class="max-w-4xl text-center">
+            <h1 class="text-5xl md:text-8xl font-black text-white mb-6 leading-tight">
+                DESCUBRE RUTAS <br>
+                <span class="text-gradient">SIN LÍMITES</span>
+            </h1>
+            <p class="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+                Navega por terrenos inexplorados con la seguridad de nuestra tecnología de mapeo inteligente. El mundo es tuyo para explorar.
+            </p>
+            
+            <div class="flex flex-col md:flex-row items-center justify-center gap-4">
+                <button class="bg-violet-600 hover:bg-violet-700 text-white px-10 py-4 rounded-full font-bold text-lg transition-all transform hover:scale-105 purple-glow flex items-center space-x-2">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <span>Explorar Mapa</span>
+                </button>
+                <button class="border border-gray-600 hover:border-violet-500 px-10 py-4 rounded-full font-bold text-lg transition-all text-white bg-gray-900/50 backdrop-blur-sm">
+                    Ver Tutorial
+                </button>
+            </div>
+
+            <!-- Indicador de Scroll -->
+            <div class="mt-20 animate-bounce opacity-50">
+                <i class="fas fa-chevron-down text-2xl"></i>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sección de Propuesta de Valor (Breve) -->
+    <section class="py-24 bg-black">
+        <div class="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
+            <div class="p-8 rounded-2xl bg-gray-900 border border-gray-800 hover:border-violet-500/50 transition">
+                <i class="fas fa-shield-alt text-4xl text-violet-500 mb-6"></i>
+                <h3 class="text-xl font-bold mb-4">Rutas Seguras</h3>
+                <p class="text-gray-400">Algoritmos que priorizan caminos iluminados y transitados.</p>
+            </div>
+            <div class="p-8 rounded-2xl bg-gray-900 border border-gray-800 hover:border-violet-500/50 transition">
+                <i class="fas fa-mountain text-4xl text-violet-500 mb-6"></i>
+                <h3 class="text-xl font-bold mb-4">Terreno Detallado</h3>
+                <p class="text-gray-400">Mapas topográficos de alta resolución para senderismo y MTB.</p>
+            </div>
+            <div class="p-8 rounded-2xl bg-gray-900 border border-gray-800 hover:border-violet-500/50 transition">
+                <i class="fas fa-offline text-4xl text-violet-500 mb-6"></i>
+                <h3 class="text-xl font-bold mb-4">Modo Offline</h3>
+                <p class="text-gray-400">Descarga tus mapas y nunca pierdas el rumbo, incluso sin señal.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-10 border-t border-gray-800 bg-black text-center text-gray-500 text-sm">
+        <p>&copy; 2024 MapVentura. Diseñado para la aventura segura.</p>
+    </footer>
+
+</body>
+</html>

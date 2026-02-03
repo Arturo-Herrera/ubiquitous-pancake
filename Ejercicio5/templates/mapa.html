@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Interactivo | MapVentura</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Font Awesome para iconos familiares -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0f172a; font-family: 'Inter', sans-serif; color: white; }
+        #map { height: 100%; width: 100%; z-index: 1; }
+        
+        /* Estilo oscuro para el mapa */
+        .leaflet-tile { filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3); }
+        
+        /* Heurística: Controles de zoom grandes (Ley de Fitts) */
+        .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+            background-color: #7c3aed !important;
+            color: white !important;
+            border: none !important;
+            width: 50px !important;
+            height: 50px !important;
+            line-height: 50px !important;
+            font-size: 20px !important;
+            border-radius: 12px !important;
+            margin-bottom: 10px !important;
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4) !important;
+        }
+
+        /* Notificaciones Toast (Actividad 3) */
+        #toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0;
+        }
+        #toast.active { opacity: 1; transform: translateX(-50%) translateY(20px); }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4c1d95; border-radius: 10px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Navbar con indicadores de estado -->
+    <nav class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-6 shrink-0 z-50">
+        <div class="flex items-center gap-3">
+            <a href="/" class="p-2 hover:bg-gray-800 rounded-lg transition" title="Volver al inicio">
+                <i class="fas fa-chevron-left text-violet-500"></i>
+            </a>
+            <h1 class="text-xl font-bold tracking-tighter">MAP<span class="text-violet-500">VENTURA</span></h1>
+        </div>
+        <div id="sync-status" class="hidden flex items-center gap-2 text-xs text-violet-400 font-bold uppercase tracking-widest">
+            <i class="fas fa-circle-notch fa-spin"></i> Sincronizando...
+        </div>
+    </nav>
+
+    <!-- Notificación Flotante -->
+    <div id="toast">
+        <div class="bg-violet-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-violet-400">
+            <i id="toast-icon" class="fas fa-check-circle"></i>
+            <span id="toast-message" class="font-bold text-sm">Punto guardado</span>
+        </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        
+        <!-- Área del Mapa (Actividad 2) -->
+        <section class="relative flex-1 h-2/3 md:h-full border-r border-gray-800">
+            <div id="map" role="application" aria-label="Mapa interactivo de rutas"></div>
+            
+            <!-- Tooltip de ayuda visual -->
+            <div class="absolute bottom-6 left-6 z-[1000] bg-gray-900/80 backdrop-blur-md p-3 rounded-xl border border-gray-700 text-[10px] text-gray-400 uppercase tracking-widest pointer-events-none">
+                <i class="fas fa-mouse-pointer mr-2 text-violet-500"></i> Haz clic en el mapa para marcar un destino
+            </div>
+        </section>
+
+        <!-- Panel de Lista (Actividad 4) -->
+        <aside id="sidebar" class="w-full md:w-80 lg:w-96 bg-black flex flex-col h-1/3 md:h-full transition-all duration-500">
+            <div class="p-4 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center">
+                <h2 class="text-sm font-bold text-gray-400 uppercase tracking-tighter flex items-center gap-2">
+                    <i class="fas fa-list-ul text-violet-500"></i> Diario de Aventura
+                </h2>
+                <span id="counter" class="bg-violet-600 px-2 py-0.5 rounded-full text-[10px] font-mono">0</span>
+            </div>
+
+            <div id="places-list" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                <!-- Estado vacío -->
+                <div id="empty-state" class="py-12 text-center">
+                    <div class="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-800">
+                        <i class="fas fa-map-marked-alt text-gray-700 text-xl"></i>
+                    </div>
+                    <p class="text-gray-500 text-xs px-10">Aún no has registrado ningún lugar en tu viaje.</p>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Configuración inicial (UTT Tijuana)
+        const initialCoords = [32.4575, -116.8256];
+        const map = L.map('map', { zoomControl: false }).setView(initialCoords, 16);
+
+        // Capa de mapa (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Actividad 2: Controles de zoom con etiquetas ARIA
+        const zoomControl = L.control.zoom({ position: 'bottomright' }).addTo(map);
+        zoomControl._container.querySelector('.leaflet-control-zoom-in').setAttribute('aria-label', 'Aumentar zoom');
+        zoomControl._container.querySelector('.leaflet-control-zoom-out').setAttribute('aria-label', 'Disminuir zoom');
+
+        // Marcador principal (Base)
+        L.marker(initialCoords, {
+            icon: L.divIcon({
+                html: '<div class="bg-violet-600 p-2 rounded-lg shadow-lg border-2 border-white"><i class="fas fa-university text-white text-xs"></i></div>',
+                className: '', iconSize: [34, 34], iconAnchor: [17, 17]
+            })
+        }).addTo(map).bindPopup("<b class='text-gray-900 font-sans'>UTT Tijuana (Base)</b>");
+
+        const pointsMap = new Map();
+
+        // Evento: Clic en el mapa para registrar punto
+        map.on('click', function(e) {
+            const { lat, lng } = e.latlng;
+            const tempId = Date.now();
+
+            // Marcador temporal
+            const marker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    html: '<div class="animate-bounce"><i class="fas fa-map-pin text-violet-500 text-3xl"></i></div>',
+                    className: '', iconSize: [30, 30], iconAnchor: [15, 30]
+                })
+            }).addTo(map);
+
+            const popupContent = document.createElement('div');
+            popupContent.className = "p-2 font-sans";
+            popupContent.innerHTML = `
+                <p class="text-gray-800 font-bold mb-2">¿Registrar este lugar?</p>
+                <div class="flex gap-2">
+                    <button id="save-${tempId}" class="bg-violet-600 text-white px-3 py-1 rounded-md text-xs font-bold shadow-md">Guardar</button>
+                    <button id="cancel-${tempId}" class="bg-gray-100 text-gray-500 px-3 py-1 rounded-md text-xs font-bold">No</button>
+                </div>
+            `;
+
+            marker.bindPopup(popupContent).openPopup();
+
+            // Lógica de guardado
+            document.getElementById(`save-${tempId}`).onclick = async () => {
+                marker.closePopup();
+                toggleSync(true);
+                
+                // Simulación de guardado en servidor (Actividad 3)
+                const success = await saveToServer({ lat, lng, name: `Destino ${pointsMap.size + 1}` });
+
+                if (success) {
+                    marker.setIcon(L.divIcon({
+                        html: '<div class="bg-gray-800 p-2 rounded-full border-2 border-violet-500 shadow-xl"><i class="fas fa-check text-violet-400 text-[10px]"></i></div>',
+                        className: '', iconSize: [28, 28], iconAnchor: [14, 14]
+                    }));
+                    
+                    addToList(tempId, lat, lng, marker);
+                    showToast("Lugar guardado con éxito", "fa-check-circle");
+                }
+                toggleSync(false);
+            };
+
+            document.getElementById(`cancel-${tempId}`).onclick = () => map.removeLayer(marker);
+        });
+
+        // Actividad 4: Lista y manejo automático de panel
+        function addToList(id, lat, lng, marker) {
+            const list = document.getElementById('places-list');
+            document.getElementById('empty-state')?.remove();
+
+            const item = document.createElement('div');
+            item.id = `item-${id}`;
+            item.className = "bg-gray-900/80 p-4 rounded-2xl border border-gray-800 flex justify-between items-center group hover:border-violet-500/50 transition-all transform animate-fade-in";
+            item.innerHTML = `
+                <div class="cursor-pointer" onclick="focusMarker(${lat}, ${lng}, ${id})">
+                    <p class="text-white text-xs font-bold group-hover:text-violet-400 transition">Destino #${pointsMap.size + 1}</p>
+                    <p class="text-gray-500 text-[9px] font-mono mt-1">${lat.toFixed(4)}, ${lng.toFixed(4)}</p>
+                </div>
+                <button onclick="removePoint(${id})" class="text-gray-700 hover:text-red-500 p-2 transition">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            `;
+            
+            list.prepend(item);
+            pointsMap.set(id, { marker, item });
+            updateUI();
+
+            // Automatización: Desplazar la lista al inicio para ver el nuevo punto
+            list.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Actividad 3: Feedback y API
+        async function saveToServer(data) {
+            try {
+                const response = await fetch('/api/guardar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                return response.ok;
+            } catch (e) {
+                showToast("Error de conexión", "fa-exclamation-triangle");
+                return false;
+            }
+        }
+
+        function toggleSync(show) {
+            document.getElementById('sync-status').classList.toggle('hidden', !show);
+        }
+
+        function showToast(msg, icon) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = msg;
+            document.getElementById('toast-icon').className = `fas ${icon}`;
+            toast.classList.add('active');
+            setTimeout(() => toast.classList.remove('active'), 3000);
+        }
+
+        window.focusMarker = (lat, lng, id) => {
+            map.flyTo([lat, lng], 17, { duration: 1.5 });
+            pointsMap.get(id).marker.openPopup();
+        };
+
+        window.removePoint = (id) => {
+            const data = pointsMap.get(id);
+            if (data) {
+                map.removeLayer(data.marker);
+                data.item.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => {
+                    data.item.remove();
+                    pointsMap.delete(id);
+                    updateUI();
+                }, 3000);
+                showToast("Punto eliminado", "fa-trash");
+            }
+        };
+
+        function updateUI() {
+            document.getElementById('counter').innerText = pointsMap.size;
+        }
+    </script>
+</body>
+</html>
